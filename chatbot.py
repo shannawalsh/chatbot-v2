@@ -1,7 +1,15 @@
 from openai import OpenAI
+import tiktoken
+import logging
+import datetime
+
+log = logging.getLogger("token_count")
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename='token_count.log', level= logging.INFO, encoding='utf-8')
+
 
 client = OpenAI()
-import tiktoken
+
 
 # accepts a preferred model and a list of messages
 # makes chat completions API call
@@ -12,29 +20,47 @@ def get_api_chat_response_message(model, messages):
         model = model,
         messages = messages,
     )
-    # extract the response text
-    response_content = api_response.choices[0].message.content
+    # return the response
+    return api_response
 
-    # return the response text
-    return response_content
+# extract & return response text
+def get_response_message(response):
+    return response.choices[0].message.content
+
+#extract & return the total number of tokens
+def get_response_total_tokens(response):
+    return response.usage.total_tokens  
+
+#extract & return the total number of input tokens
+def get_response_total_input_tokens(response):
+    return response.usage.prompt_tokens
+
+#extract & return the total number of output tokens
+def get_response_total_output_tokens(response):
+    return response.usage.completion_tokens
 
 model = "gpt-3.5-turbo"
 encoding = tiktoken.encoding_for_model(model)
-print(encoding)
+token_input_limit = 12289
+total_token_count = 0
+total_input_token_count = 0
+total_output_token_count = 0
 
 chat_history = []
 
+user_input = ""
+
 while True:
-    user_input = input("You: ")
+    if (user_input == ""):
+        user_input = input("Chatbot: Hey there, I'm here to help. Type exit to end our chat. Otherwise, nice to meet you. What is your name? ")
+    else:
+        user_input = input("You: ")
     if user_input.lower() == "exit":
-        break
+        log.info("\nDate: " + str(datetime.datetime.now()) + "\nTotal tokens: " + str(total_token_count) + "\nTotal Input tokens: " + str(total_input_token_count) + "\nTotal Output tokens: " + str(total_output_token_count) + "\n\n")
+        exit()
     
-    #user_input_encoded = encoding.encode(user_input)
-    #print(user_input_encoded)
     token_count = len(encoding.encode(user_input))
-    token_input_limit = 12289
-    #print(token_count)
-    
+             
     if (token_count > token_input_limit):
         print("Your prompt is too long. Please try again.")
         continue
@@ -45,6 +71,10 @@ while True:
     })
     
     response = get_api_chat_response_message(model, chat_history)
+    response_message = get_response_message(response)
+    
+    response_total_tokens = get_response_total_tokens(response)
+    total_token_count += response_total_tokens
     
     print("Chatbot: ", response)
 
